@@ -25,29 +25,30 @@
         </el-menu>
       </el-col>
       <el-col :span="18">
-      <el-card height="50vh">
+      <el-card>
         <template #header>
           <span v-if="tab==='public'">公聊💫</span>
           <span v-else>对{{tab}}✨</span>
         </template>
-        <div>
-          <el-scrollbar height="30vh">
+          <el-scrollbar height="200px">
+            <div v-for="(item,index) in 100" :key="index"> {{item}}</div>
           </el-scrollbar>
-          <el-divider></el-divider>
-          
           <div min-height="10vh">
             <el-input type="text" v-model="userData.message">
-                <template #prepend>
-                    <el-upload id="upload">
-                        <el-button type="primary">选择文件</el-button>
-                    </el-upload>
-                </template>
                 <template #append>
-                    <el-button>发送</el-button>
+                    <el-button @click="sendMessage()">发送</el-button>
                 </template>
             </el-input>
+             <el-upload 
+             v-model:file-list="fileList"
+             :limit="1"
+             :on-exceed="handleExceed"
+             :auto-upload="false"
+             >
+                <el-button>上传文件</el-button>
+            </el-upload>
           </div>
-        </div>    
+            
       </el-card>
       </el-col>
       </el-row>
@@ -76,6 +77,7 @@ const userData = ref({
   connected: false,
   message: ''
 })
+const fileList = ref([]);
 const defaultData = {}
 onMounted(()=>{
   Object.assign(defaultData,userData.value);
@@ -157,15 +159,16 @@ const onPrivateMessageReceived = (payload)=>{
   console.log(payloadData);
 }
 
+const sendMessage = ()=>{
+    console.log(fileList.value);
+}
 
+const handleExceed = ()=>{
+    ElMessage.warning("一次只能发送一个文件")
+}
 </script>
 
 <style>
-
-/* *{
-    margin: 0;
-    padding: 0;
-} */
 #body{
     width:60vw;
     margin:0 auto;
@@ -215,19 +218,6 @@ body {
     height: 100%;
     transition: 1s;
 }
-.glass {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    z-index: 1;
-    width: 600px;
-    height: 450px;
-    transform: translate(-50%, -50%);
-    transition: 1s;
-}
-.glass body {
-    height: 100vh;
-}
 .glass .frosted-bg, .glass .glass {
     background-position: center;
     background-repeat: no-repeat;
@@ -245,8 +235,6 @@ body {
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 600px;
-    height: 450px;
     transform: translate(-50%, -50%);
     transition: 1s;
 }
@@ -282,8 +270,7 @@ body {
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 600px;
-    height: 450px;
+    width: 50vw;
     transform: translate(-50%, -50%);
     transition: 1s;
 }
@@ -293,7 +280,6 @@ body {
 .glass:hover ~ .frosted-bg {
     filter: blur(10px);
 }
-
 
 :deep() .el-input-group__prepend {
     background-color: rgb(255, 255, 255);
@@ -305,7 +291,8 @@ body {
     color: white;
     border-radius: 5px;
 }
-:deep() #enter{
-    border-width: 0;
+:deep() .el-input__inner{
+    border: none;
+    background-color: transparent;
 }
 </style>
