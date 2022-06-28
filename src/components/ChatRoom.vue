@@ -33,15 +33,15 @@
           <span v-if="tab==='public'">公聊💫</span>
           <span v-else>对{{tab}}✨</span>
         </template>
-        <div height="30vh">
-          <el-scrollbar height="20vh">
+        <div height="40vh">
+          <el-scrollbar height="30vh">
           </el-scrollbar>
           <el-divider></el-divider>
           
           <div min-height="10vh">
-            <el-input type="text">
+            <el-input type="text" v-model="userData.message">
                 <template #prepend>
-                    <el-upload>
+                    <el-upload id="upload">
                         <el-button type="primary">选择文件</el-button>
                     </el-upload>
                 </template>
@@ -164,7 +164,7 @@ const onPrivateMessageReceived = (payload)=>{
 *{
     margin: 0;
     padding: 0;
-    }
+}
 .body{
     width:60vw;
     margin:0 auto;
@@ -174,6 +174,16 @@ const onPrivateMessageReceived = (payload)=>{
     background-color: rgb(155, 127, 255);
     height:3vh;
     text-align: center;
+    border-radius: 5px;
+}
+:deep() .el-input-group__prepend {
+    background-color: rgb(255, 255, 255);
+    color: black;
+    border-radius: 5px;
+}
+:deep() .el-input-group__append{
+    background-color: rgb(59, 144, 217);
+    color: white;
     border-radius: 5px;
 }
 </style>
