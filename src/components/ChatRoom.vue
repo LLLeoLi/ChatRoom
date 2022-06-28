@@ -54,12 +54,12 @@
       </el-row>
   </div>
   <div v-else class="frosted-glass">
-    <h1 class="title">SAKURA</h1>
-    <el-input v-model="userData.userName" placeholder="请输入用户名" type="text" @keyup.enter="handleLogin()">
-    <template #append>
-      <el-button type="primary" id="enter" @click="handleLogin()">进入聊天室</el-button>
-    </template>
-    </el-input>
+    <div class="title">
+        SAKURA
+        <br/>
+        <input id="login" v-model="userData.userName" type="text" @keyup.enter="handleLogin()"/>
+    </div>
+    
   </div>
   </div>
 </template>
@@ -160,9 +160,28 @@ const onPrivateMessageReceived = (payload)=>{
 }
 
 const sendMessage = ()=>{
-    console.log(fileList.value);
+    
+    if(stompClient){
+        if(userData.value.message){
+            let message = {
+                senderName: userData.value.userName,
+                message: userData.value.message,
+                messageType: "text",
+                status:"MESSAGE"
+            };
+            console.log("onSendMessage",message);
+            stompClient.send("/app/message",{},JSON.stringify(message));
+            userData.value.message = '';
+        }
+        if(fileList.value[0]===undefined){
+            console.log("没有上传文件");
+        }
+        else{
+            if(fileList.value[0].raw.type.match('image')) console.log("type");
+        }
+    }
 }
-
+// 处理超过一个文件上传的情况
 const handleExceed = ()=>{
     ElMessage.warning("一次只能发送一个文件")
 }
@@ -174,6 +193,19 @@ const handleExceed = ()=>{
     margin:0 auto;
     margin-top:10vh;
 }
+
+#login{
+    outline-style: none ;
+    border:none;
+    border-bottom: 3px solid rgb(255, 255, 255);
+    font-size:4vh;
+    color: rgb(255, 255, 255);
+    text-align: center;
+    font-family: "Microsoft soft";
+    background-color: transparent;
+    width:90%;
+}
+
 
 .frosted-glass {
     display: flex;
@@ -270,7 +302,7 @@ body {
     top: 50%;
     left: 50%;
     z-index: 1;
-    width: 50vw;
+    width: 72vw;
     transform: translate(-50%, -50%);
     transition: 1s;
 }
