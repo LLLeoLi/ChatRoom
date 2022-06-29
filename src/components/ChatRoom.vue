@@ -2,14 +2,14 @@
   <div id="body">
     <div v-if="login" class="glass" style="opacity:0.9;">
       <el-row>
-        <el-col :span="6">
-      <el-page-header icon="ArrowLeft" style="background-color:white;" @back="handleLogout()"/>
+      <el-col :span="6" style="opacity:0.8;">
+      <el-page-header icon="ArrowLeft"  @back="handleLogout()"/>
         <el-menu
           :default-active="tab"
           class="el-menu-vertical-demo"
           @select="handleSelect"
         >
-          <el-menu-item index="public">
+          <el-menu-item index="public" style>
               <el-icon><Comment /></el-icon>
               <span>公聊</span>
           </el-menu-item>
@@ -19,22 +19,56 @@
               <span>私聊</span>
             </template>
             <el-menu-item-group>          
-              <el-menu-item id="selectMenu" v-for="(item,index) in array" :index="String(item)" :key="index">{{item}}</el-menu-item>
+              <el-menu-item  v-for="(item,index) in userList.keys()" :index="String(item)" :key="index">
+              <span>{{item}}</span>
+              <span v-if="item==userData.userName">🎇</span>
+              <span v-else>{{userList.get(item)}}</span>
+              </el-menu-item>
             </el-menu-item-group>
           </el-sub-menu>
         </el-menu>
       </el-col>
       <el-col :span="18">
-      <el-card>
+      <el-card id="chat">
         <template #header>
-          <span v-if="tab==='public'">公聊💫</span>
-          <span v-else>对{{tab}}✨</span>
+          <div class="card-title">
+            <span v-if="tab==='public'">公聊💫</span>
+            <span v-else>对{{tab}}✨</span>
+          </div>
         </template>
-          <el-scrollbar height="200px">
-            <div v-for="(item,index) in 100" :key="index"> {{item}}</div>
+          <el-scrollbar height="30vh">
+            <div class="messgae" v-for="(chat,index) in publicChats" :key="index">
+            <div class="avatar">{{chat.senderName}}</div>
+                    <div class="message-data" v-if="chat.messageType=='text'">{{chat.message}}</div>
+                    <div class="message-data" v-if="chat.messageType=='image'">
+                        <div class="demo-image__preview">
+                            <el-image
+                            style="width: 50px; height: 50px"
+                            :initial-index="0"
+                            :src="chat.message"
+                            :preview-src-list="[chat.message]"
+                            :alt="chat.messageName"
+                            fit="cover"
+                            />
+                        </div>
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='file'">
+                        <el-button size="large" round @click="downloadFile(chat.message, chat.messageName)">下载 {{chat.messageName}}</el-button>
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='video'">
+                        <video alt="chat.messageName" width="150" height="150" controls>
+                            <source :src="chat.message" type="video/mp4" />
+                        </video>
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='audio'">
+                        <audio alt="chat.messageName" controls>
+                            <source :src="chat.message" type="audio/mpeg" />
+                        </audio>
+                    </div>
+            </div>
           </el-scrollbar>
-          <div min-height="10vh">
-            <el-input type="text" v-model="userData.message">
+          <div>
+            <el-input type="text" v-model="userData.message" @keyup.enter="sendMessage()">
                 <template #append>
                     <el-button @click="sendMessage()">发送</el-button>
                 </template>
@@ -48,6 +82,7 @@
              >
                 <el-button>上传文件</el-button>
             </el-upload>
+            <el-button @click="reset()">RESET</el-button>
           </div>
             
       </el-card>
@@ -71,19 +106,26 @@ import  SockJS  from "sockjs-client/dist/sockjs"
 import { ElMessage } from 'element-plus'
 let stompClient = null;
 let login = ref(false)
-const uploadRef = ref()
+// 用户信息
 const userData = ref({
   userName:'',
   receiverName: '',
   connected: false,
   message: ''
 })
+// 上传文件
 const fileList = ref([]);
+// 默认用户信息
 const defaultData = {}
 onMounted(()=>{
   Object.assign(defaultData,userData.value);
 })
-const array = [1,2,3];
+// 用户列表
+const userList = useStorage('userList',new Map());
+// 私聊信息
+const privateChats = new Map();
+// 公聊信息
+const publicChats = useStorage('publicChats',[]);
 const tab = ref("public");
 // menu 自带事件
 const handleSelect = (index, keyPath, item) => {
@@ -134,9 +176,9 @@ const connect = ()=>{
 const onConnected = () => {
     userData.value.connected=true;
     console.log("🚀 成功连接", userData.value);
-    // 公聊
+    // 订阅公聊
     stompClient.subscribe('/chatroom/public', onPublicMessageReceived);
-    // 私聊
+    // 订阅私聊
     stompClient.subscribe('/user/'+userData.value.username+'/private', onPrivateMessageReceived);
     // 用户加入聊天室
     userJoin();
@@ -147,17 +189,50 @@ const onError = (err) => {
 }
 // 用户进入聊天室
 const userJoin = ()=>{
-  console.log("用户加入聊天室");
+  let message = {
+    senderName: userData.value.userName,
+    messageType: "text",
+    status:"JOIN"
+  };
+  userList.value.set(userData.value.userName,"🈺");
+  // 初始化私聊的用户列表
+  for(const[key,value] of userList.value.entries()){
+    if(!privateChats.get(key)) privateChats.set(key,[]); 
+  }
+  // 通知WebSockert
+  stompClient.send("/app/message",{},JSON.stringify(message));
 }
 // 收到公聊消息
 const onPublicMessageReceived = (payload)=>{
   let payloadData = JSON.parse(payload.body);
-  console.log(payloadData);
+  console.log("收到公聊消息",payloadData);
+  switch(payloadData.status){
+    case "JOIN":
+      // 初始化私聊用户列表
+      if(!privateChats.get(payloadData.senderName)){
+        privateChats.set(payloadData.senderName,[]);
+      }
+      userList.value.set(payloadData.senderName,"🈺");
+      break;
+    case "MESSAGE":
+      publicChats.value.push(payloadData);
+      break;
+    case "LEAVE":
+      console.log("改变状态")
+      userList.value.set(payloadData.senderName,"");
+  }
 }
 // 收到私聊信息
 const onPrivateMessageReceived = (payload)=>{
   let payloadData = JSON.parse(payload.body);
-  console.log(payloadData);
+  console.log("收到私聊消息",payloadData);
+  if(privateChats.get(payloadData.senderName)){
+    privateChats.set(payloadData.senderName, [...privateChats.get(payloadData.senderName)])
+  }else{
+    let list = [];
+    list.push(payloadData);
+    privateChats.set(payload.senderName,list);
+  }
 }
 // 发送消息
 const sendMessage = ()=>{
@@ -181,9 +256,10 @@ const sendMessage = ()=>{
             else{
               let sendMessage = message;
               sendMessage.receiverName = tab.value;
+              privateChats.set(tab.value,[...privateChats.get(tab.value),sendMessage]);
               stompClient.send("/app/private-messsage",{},JSON.stringify(sendMessage));
             }
-            userData.value.message = '';
+            userData.value.message = "";
         }
         // 文件
         if(fileList.value[0]===undefined){
@@ -196,6 +272,7 @@ const sendMessage = ()=>{
           messageName:fileList.value[0].raw.name,
           }
           const reader = new FileReader();
+          // 读取后回调
           reader.onload = (evt)=>{
             const content = evt.target.result;
             console.log("CONTENT",content);
@@ -221,6 +298,8 @@ const sendMessage = ()=>{
             }
             else{
               fileMessage.receiverName = tab.value;
+              // 设置私聊列表
+              privateChats.set(tab.value,[...privateChats.get(tab.value),fileMessage]);
               stompClient.send("/app/private-message", {}, JSON.stringify(fileMessage));
             }
           }
@@ -231,6 +310,11 @@ const sendMessage = ()=>{
 // 处理超过一个文件上传的情况
 const handleExceed = ()=>{
     ElMessage.warning("一次只能发送一个文件")
+}
+// reset便于测试
+const reset = ()=>{
+  publicChats.value = null;
+  publicChats = useStorage('publicChats',[]);
 }
 </script>
 
@@ -253,6 +337,34 @@ const handleExceed = ()=>{
     width:90%;
 }
 
+.message{
+  padding:5px;
+  width: auto;
+  display: flex;
+  flex-direction: row;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.2);
+  margin: 5px 10px;
+}
+.message-data{
+  padding:5px;
+}
+.message.self{
+  justify-content: end;
+}
+.avatar{
+  background-color: cornflowerblue;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color:#fff;
+}
+.avatar.self{
+  color:#000;
+  background-color: greenyellow;
+}
+
+.card-title{
+  text-align: center;
+}
 
 .frosted-glass {
     display: flex;
@@ -373,5 +485,11 @@ body {
 :deep() .el-input__inner{
     border: none;
     background-color: transparent;
+}
+:deep()  .el-card__body {
+  height: 40vh;
+}
+:deep() .el-sub-menu__title{
+  background-color: gold;
 }
 </style>
