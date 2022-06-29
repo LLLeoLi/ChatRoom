@@ -39,7 +39,8 @@
                     <el-button @click="sendMessage()">发送</el-button>
                 </template>
             </el-input>
-             <el-upload 
+             <el-upload
+             action="https://element-plus.gitee.io/zh-CN/" 
              v-model:file-list="fileList"
              :limit="1"
              :on-exceed="handleExceed"
@@ -59,7 +60,6 @@
         <br/>
         <input id="login" v-model="userData.userName" type="text" @keyup.enter="handleLogin()"/>
     </div>
-    
   </div>
   </div>
 </template>
@@ -71,6 +71,7 @@ import  SockJS  from "sockjs-client/dist/sockjs"
 import { ElMessage } from 'element-plus'
 let stompClient = null;
 let login = ref(false)
+const uploadRef = ref()
 const userData = ref({
   userName:'',
   receiverName: '',
@@ -158,10 +159,14 @@ const onPrivateMessageReceived = (payload)=>{
   let payloadData = JSON.parse(payload.body);
   console.log(payloadData);
 }
-
+// 发送消息
 const sendMessage = ()=>{
-    
+    if(!userData.value.message&&fileList.value[0]===undefined){
+      ElMessage.warning("消息不能为空");
+      return;
+    }
     if(stompClient){
+      // 消息
         if(userData.value.message){
             let message = {
                 senderName: userData.value.userName,
@@ -170,14 +175,56 @@ const sendMessage = ()=>{
                 status:"MESSAGE"
             };
             console.log("onSendMessage",message);
-            stompClient.send("/app/message",{},JSON.stringify(message));
+            if(tab.value=="public"){
+              stompClient.send("/app/message",{},JSON.stringify(message));
+            }
+            else{
+              let sendMessage = message;
+              sendMessage.receiverName = tab.value;
+              stompClient.send("/app/private-messsage",{},JSON.stringify(sendMessage));
+            }
             userData.value.message = '';
         }
+        // 文件
         if(fileList.value[0]===undefined){
             console.log("没有上传文件");
         }
         else{
-            if(fileList.value[0].raw.type.match('image')) console.log("type");
+          let fileMessage={
+          senderName: userData.value.userName,
+          status:"MESSAGE",
+          messageName:fileList.value[0].raw.name,
+          }
+          const reader = new FileReader();
+          reader.onload = (evt)=>{
+            const content = evt.target.result;
+            console.log("CONTENT",content);
+            fileMessage.message = content;
+            if(fileList.value[0].raw.type.match('image')){
+              fileMessage.messageType = "image";
+            console.log("图片已上传",fileMessage);
+            }
+            else if(fileList.value[0].raw.type.match('video')){
+              fileMessage.messageType = "video";
+              console.log("视频已上传",fileMessage);
+            }
+            else if(fileList.value[0].raw.type.match('audio')){
+              fileMessage.messageType = "audio";
+              console.log("音频已上传",fileMessage);
+            }
+            else{
+              fileMessage.messageType = "file";
+              consolelogin.log("文件已上传",fileMessage);
+            }
+            if(tab.value=="public"){
+              stompClient.send("/app/message", {}, JSON.stringify(fileMessage));
+            }
+            else{
+              fileMessage.receiverName = tab.value;
+              stompClient.send("/app/private-message", {}, JSON.stringify(fileMessage));
+            }
+          }
+          reader.readAsDataURL(fileList.value[0].raw)
         }
     }
 }
