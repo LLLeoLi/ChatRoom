@@ -37,34 +37,65 @@
           </div>
         </template>
           <el-scrollbar height="30vh">
-            <div class="messgae" v-for="(chat,index) in publicChats" :key="index">
-            <div class="avatar">{{chat.senderName}}</div>
+            <div v-if="tab==='public'">
+              <div v-for="(chat,index) in publicChats" :key="index">
+            <div v-if="chat.senderName ===userData.userName" class="avatar-me">{{chat.senderName}}</div>
+            <div v-else class="avatar">{{chat.senderName}}</div>
                     <div class="message-data" v-if="chat.messageType=='text'">{{chat.message}}</div>
                     <div class="message-data" v-if="chat.messageType=='image'">
-                        <div class="demo-image__preview">
-                            <el-image
-                            style="width: 50px; height: 50px"
-                            :initial-index="0"
-                            :src="chat.message"
-                            :preview-src-list="[chat.message]"
-                            :alt="chat.messageName"
-                            fit="cover"
-                            />
-                        </div>
+                          <el-image
+                          style="width: 10vw; height: 12vh"
+                          :initial-index="0"
+                          :src="chat.message"
+                          :preview-src-list="[chat.message]"
+                          :alt="chat.messageName"
+                          fit="cover"
+                          />
                     </div>
                     <div class="message-data" v-if="chat.messageType=='file'">
                         <el-button size="large" round @click="downloadFile(chat.message, chat.messageName)">下载 {{chat.messageName}}</el-button>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
-                            <source :src="chat.message" type="video/mp4" />
+                            <source :src="chat.message" type="video" />
                         </video>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='audio'">
                         <audio alt="chat.messageName" controls>
-                            <source :src="chat.message" type="audio/mpeg" />
+                            <source :src="chat.message" type="audio" />
                         </audio>
                     </div>
+            </div>
+            </div>
+            <div v-else>
+              <div v-for="(chat,index) in privateChats.get(tab)" :key="index">
+            <div v-if="chat.senderName ===userData.userName" class="avatar-me">{{chat.senderName}}</div>
+            <div v-else class="avatar">{{chat.senderName}}</div>
+                    <div class="message-data" v-if="chat.messageType=='text'">{{chat.message}}</div>
+                    <div class="message-data" v-if="chat.messageType=='image'">
+                          <el-image
+                          style="width: 10vw; height: 12vh"
+                          :initial-index="0"
+                          :src="chat.message"
+                          :preview-src-list="[chat.message]"
+                          :alt="chat.messageName"
+                          fit="cover"
+                          />
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='file'">
+                        <el-button size="large" round @click="downloadFile(chat.message, chat.messageName)">下载 {{chat.messageName}}</el-button>
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='video'">
+                        <video alt="chat.messageName" width="150" height="150" controls>
+                            <source :src="chat.message" type="video" />
+                        </video>
+                    </div>
+                    <div class="message-data" v-if="chat.messageType=='audio'">
+                        <audio alt="chat.messageName" controls>
+                            <source :src="chat.message" type="audio" />
+                        </audio>
+                    </div>
+            </div>
             </div>
           </el-scrollbar>
           <div>
@@ -82,7 +113,6 @@
              >
                 <el-button>上传文件</el-button>
             </el-upload>
-            <el-button @click="reset()">RESET</el-button>
           </div>
             
       </el-card>
@@ -175,11 +205,10 @@ const connect = ()=>{
 // 链接成功回调
 const onConnected = () => {
     userData.value.connected=true;
-    console.log("🚀 成功连接", userData.value);
     // 订阅公聊
     stompClient.subscribe('/chatroom/public', onPublicMessageReceived);
     // 订阅私聊
-    stompClient.subscribe('/user/'+userData.value.username+'/private', onPrivateMessageReceived);
+    stompClient.subscribe('/user/'+userData.value.userName+'/private', onPrivateMessageReceived);
     // 用户加入聊天室
     userJoin();
 }
@@ -257,7 +286,7 @@ const sendMessage = ()=>{
               let sendMessage = message;
               sendMessage.receiverName = tab.value;
               privateChats.set(tab.value,[...privateChats.get(tab.value),sendMessage]);
-              stompClient.send("/app/private-messsage",{},JSON.stringify(sendMessage));
+              stompClient.send("/app/private-message",{},JSON.stringify(sendMessage));
             }
             userData.value.message = "";
         }
@@ -291,14 +320,15 @@ const sendMessage = ()=>{
             }
             else{
               fileMessage.messageType = "file";
-              consolelogin.log("文件已上传",fileMessage);
+              console.log("文件已上传",fileMessage);
             }
+            // 公聊私聊
             if(tab.value=="public"){
               stompClient.send("/app/message", {}, JSON.stringify(fileMessage));
             }
             else{
               fileMessage.receiverName = tab.value;
-              // 设置私聊列表
+              console.log("私聊上传",tab.value);
               privateChats.set(tab.value,[...privateChats.get(tab.value),fileMessage]);
               stompClient.send("/app/private-message", {}, JSON.stringify(fileMessage));
             }
@@ -310,6 +340,15 @@ const sendMessage = ()=>{
 // 处理超过一个文件上传的情况
 const handleExceed = ()=>{
     ElMessage.warning("一次只能发送一个文件")
+}
+// 下载文件
+const downloadFile = (content, name)=>{
+    const url = window.URL.createObjectURL(new Blob([JSON.stringify(content)]));
+    const fileLink = document.createElement('a');
+    fileLink.href = url;
+    fileLink.setAttribute('download', name); 
+    document.body.appendChild(fileLink);
+    fileLink.click();
 }
 // reset便于测试
 const reset = ()=>{
@@ -356,12 +395,16 @@ const reset = ()=>{
   padding: 3px 5px;
   border-radius: 5px;
   color:#fff;
-}
-.avatar.self{
-  color:#000;
-  background-color: greenyellow;
+  width:30%;
 }
 
+.avatar-me{
+  background-color: gold;
+  padding: 3px 5px;
+  border-radius: 5px;
+  color:#fff;
+  width:30%;
+}
 .card-title{
   text-align: center;
 }
@@ -489,7 +532,5 @@ body {
 :deep()  .el-card__body {
   height: 40vh;
 }
-:deep() .el-sub-menu__title{
-  background-color: gold;
-}
+
 </style>
