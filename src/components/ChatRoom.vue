@@ -83,7 +83,10 @@
                           />
                     </div>
                     <div class="message-data" v-if="chat.messageType=='file'">
-                        <el-button @click="downloadFile(chat.message, chat.messageName)"> {{chat.messageName}}</el-button>
+                        <el-button @click="downloadFile(chat.message, chat.messageName)">{{chat.messageName}} 
+                        <br/>
+                        <el-icon><Download /></el-icon> 
+                        </el-button>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
