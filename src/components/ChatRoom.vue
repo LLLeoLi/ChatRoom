@@ -53,7 +53,7 @@
                           />
                     </div>
                     <div class="message-data" v-if="chat.messageType=='file'">
-                        <el-button size="large" round @click="downloadFile(chat.message, chat.messageName)">下载 {{chat.messageName}}</el-button>
+                        <el-button @click="downloadFile(chat.message, chat.messageName)"> {{chat.messageName}}</el-button>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
@@ -83,7 +83,7 @@
                           />
                     </div>
                     <div class="message-data" v-if="chat.messageType=='file'">
-                        <el-button size="large" round @click="downloadFile(chat.message, chat.messageName)">下载 {{chat.messageName}}</el-button>
+                        <el-button @click="downloadFile(chat.message, chat.messageName)"> {{chat.messageName}}</el-button>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
@@ -129,11 +129,11 @@
   </div>
 </template>
 <script setup>
-import { ref, unref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, unref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { over } from 'stompjs';
 import  SockJS  from "sockjs-client/dist/sockjs"
-import { ElMessage } from 'element-plus'
+import { ElMessage, valueEquals } from 'element-plus'
 let stompClient = null;
 let login = ref(false)
 // 用户信息
@@ -152,8 +152,9 @@ onMounted(()=>{
 })
 // 用户列表
 const userList = useStorage('userList',new Map());
+// 去除自己的用户列表
 // 私聊信息
-const privateChats = new Map();
+let privateChats = reactive(new Map());
 // 公聊信息
 const publicChats = useStorage('publicChats',[]);
 const tab = ref("public");
@@ -256,7 +257,7 @@ const onPrivateMessageReceived = (payload)=>{
   let payloadData = JSON.parse(payload.body);
   console.log("收到私聊消息",payloadData);
   if(privateChats.get(payloadData.senderName)){
-    privateChats.set(payloadData.senderName, [...privateChats.get(payloadData.senderName)])
+    privateChats.set(payloadData.senderName, [...privateChats.get(payloadData.senderName),payloadData])
   }else{
     let list = [];
     list.push(payloadData);
@@ -350,10 +351,8 @@ const downloadFile = (content, name)=>{
     document.body.appendChild(fileLink);
     fileLink.click();
 }
-// reset便于测试
-const reset = ()=>{
-  publicChats.value = null;
-  publicChats = useStorage('publicChats',[]);
+window.onunload = ()=>{
+  localStorage.clear();
 }
 </script>
 
