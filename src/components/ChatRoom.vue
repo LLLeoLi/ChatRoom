@@ -57,12 +57,12 @@
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
-                            <source :src="chat.message" type="video" />
+                            <source :src="chat.message" type="video/mp4" />
                         </video>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='audio'">
                         <audio alt="chat.messageName" controls>
-                            <source :src="chat.message" type="audio" />
+                            <source :src="chat.message" type="audio/mpeg" />
                         </audio>
                     </div>
             </div>
@@ -90,12 +90,12 @@
                     </div>
                     <div class="message-data" v-if="chat.messageType=='video'">
                         <video alt="chat.messageName" width="150" height="150" controls>
-                            <source :src="chat.message" type="video" />
+                            <source :src="chat.message" type="video/mp4" />
                         </video>
                     </div>
                     <div class="message-data" v-if="chat.messageType=='audio'">
                         <audio alt="chat.messageName" controls>
-                            <source :src="chat.message" type="audio" />
+                            <source :src="chat.message" type="audio/mpeg" />
                         </audio>
                     </div>
             </div>
@@ -259,13 +259,13 @@ const onPublicMessageReceived = (payload)=>{
 const onPrivateMessageReceived = (payload)=>{
   let payloadData = JSON.parse(payload.body);
   console.log("收到私聊消息",payloadData);
-  if(privateChats.get(payloadData.senderName)){
+    if(privateChats.get(payloadData.senderName)){
     privateChats.set(payloadData.senderName, [...privateChats.get(payloadData.senderName),payloadData])
-  }else{
-    let list = [];
-    list.push(payloadData);
-    privateChats.set(payload.senderName,list);
-  }
+    }else{
+      let list = [];
+      list.push(payloadData);
+      privateChats.set(payload.senderName,list);
+    }
 }
 // 发送消息
 const sendMessage = ()=>{
@@ -347,9 +347,13 @@ const handleExceed = ()=>{
 }
 // 下载文件
 const downloadFile = (content, name)=>{
-    const url = window.URL.createObjectURL(new Blob([JSON.stringify(content)]));
+    let arr = content.split(','), mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+    while(n--){
+      u8arr[n] = bstr.charCodeAt(n);
+    }
     const fileLink = document.createElement('a');
-    fileLink.href = url;
+    fileLink.href = window.URL.createObjectURL(new File([u8arr],name,{type:mime}));
     fileLink.setAttribute('download', name); 
     document.body.appendChild(fileLink);
     fileLink.click();
