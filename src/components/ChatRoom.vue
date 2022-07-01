@@ -336,6 +336,7 @@ const sendMessage = ()=>{
               privateChats.set(tab.value,[...privateChats.get(tab.value),fileMessage]);
               stompClient.send("/app/private-message", {}, JSON.stringify(fileMessage));
             }
+            fileList.value.splice(0);
           }
           reader.readAsDataURL(fileList.value[0].raw)
         }
